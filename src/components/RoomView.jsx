@@ -10,6 +10,7 @@ export default function RoomView({ code, onLeave }) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState("");
+  const [confirmClear, setConfirmClear] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -67,6 +68,22 @@ export default function RoomView({ code, onLeave }) {
     }
   };
 
+  const handleDeleteAll = async () => {
+    if (!confirmClear) {
+      setConfirmClear(true);
+      setTimeout(() => setConfirmClear(false), 4000);
+      return;
+    }
+    setConfirmClear(false);
+    try {
+      const r = await api.deleteAllItems(code);
+      await load();
+      showToast(`${r.count} item dihapus ✓`);
+    } catch (e) {
+      setError(e.message);
+    }
+  };
+
   const shareRoom = async () => {
     const url = `${location.origin}${location.pathname}#r=${code}`;
     try {
@@ -118,9 +135,23 @@ export default function RoomView({ code, onLeave }) {
       </div>
 
       {/* Daftar isi */}
-      <h2 className="mt-8 font-mono text-[11px] font-bold tracking-[0.3em] text-ink-soft uppercase">
-        Isi room ({room ? room.items.length : "…"})
-      </h2>
+      <div className="mt-8 flex items-center justify-between">
+        <h2 className="font-mono text-[11px] font-bold tracking-[0.3em] text-ink-soft uppercase">
+          Isi room ({room ? room.items.length : "…"})
+        </h2>
+        {room && room.items.length > 0 && (
+          <button
+            onClick={handleDeleteAll}
+            className={`rounded-lg border px-3 py-1.5 font-mono text-[11px] font-bold transition ${
+              confirmClear
+                ? "border-danger bg-danger text-white"
+                : "border-line text-ink-soft hover:border-danger hover:text-danger"
+            }`}
+          >
+            {confirmClear ? `Yakin? Hapus ${room.items.length} item` : "🗑 Hapus semua"}
+          </button>
+        )}
+      </div>
       <div className="mt-3 space-y-3">
         {!room && !error && (
           <p className="py-8 text-center font-mono text-sm text-ink-soft">Memuat…</p>

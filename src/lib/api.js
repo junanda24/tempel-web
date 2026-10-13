@@ -129,6 +129,17 @@ const mock = {
     saveRooms(rooms);
     return { ok: true };
   },
+  async deleteAllItems(rawCode) {
+    await latency();
+    const code = normalizeCode(rawCode);
+    const rooms = prune(loadRooms());
+    const room = rooms[code];
+    if (!room) throw new Error("Room tidak ditemukan.");
+    const count = room.items.length;
+    room.items = [];
+    saveRooms(rooms);
+    return { ok: true, count };
+  },
 };
 
 /* ---------------- REAL ADAPTER (Supabase) ---------------- */
@@ -268,6 +279,25 @@ const real = {
     if (error) throw new Error("Gagal menghapus: " + error.message);
     track("item_deleted");
     return { ok: true };
+  },
+
+  async deleteAllItems(rawCode) {
+    const code = normalizeCode(rawCode);
+    // Hapus file fisik dulu, baru baris-barisnya.
+    const { data: rows } = await sb
+      .from("items")
+      .select("file_path")
+      .eq("room_code", code)
+      .not("file_path", "is", null);
+    const paths = (rows || []).map((r) => r.file_path).filter(Boolean);
+    if (paths.length) await sb.storage.from(BUCKET).remove(paths);
+    const { error, count } = await sb
+      .from("items")
+      .delete({ count: "exact" })
+      .eq("room_code", code);
+    if (error) throw new Error("Gagal menghapus semua: " + error.message);
+    track("item_deleted");
+    return { ok: true, count: count ?? 0 };
   },
 };
 
